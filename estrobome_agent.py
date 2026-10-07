@@ -121,11 +121,24 @@ workflow.add_edge("regenerate", "approval")  # re-check after regeneration
 app = workflow.compile()
 
 if __name__ == "__main__":
-    # Test run
+    # Test run + save output for CI pipeline
     result = app.invoke({
         "topic": "How fiber feeds your estrobolome",
         "niche": "gut-health-women-45",
         "platform": "instagram"
     })
-    print("Posted:", result.get("posted", False))
-    print("Draft:", result.get("draft", "")[:200])
+    
+    # Save drafts for GitHub Actions post job
+    output = {
+        "posts": [
+            {"platform": "instagram", "content": result.get("draft", ""), "status": "ready"},
+            {"platform": "tiktok", "content": result.get("draft", ""), "status": "ready"},
+            {"platform": "pinterest", "content": result.get("draft", ""), "status": "ready"},
+        ],
+        "trends": []
+    }
+    with open("content_drafts.json", "w") as f:
+        json.dump(output, f, indent=2)
+    
+    print(f"Generated {len(output['posts'])} posts")
+    print(json.dumps(output, indent=2))
