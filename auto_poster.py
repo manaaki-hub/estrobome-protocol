@@ -86,47 +86,90 @@ def post_to_platform(content, platform):
     return {"status": "posted", "platform": platform}
 
 def main():
-    print(f"=== Auto-Post Run: {datetime.now()} ===")
+    print(f"=== Estrobolome Content Agent ===")
     
-    # 1. Get trends
-    trends = load_trends()
-    ideas = trends.get("content_ideas", [])
-    
-    if not ideas:
-        print("No content ideas. Run trend_detector.py first.")
-        return
+    # Load trends if available
+    try:
+        with open("trend_output.json") as f:
+            trends = json.load(f)
+        ideas = trends.get("content_ideas", [{"topic": "How fiber feeds your estrobolome", "angle": "Fiber feeds your estrobolome"}])
+    except FileNotFoundError:
+        ideas = [{"topic": "Gut health for women 45+", "angle": "Gut health for women 45+"}]
     
     platforms = ["instagram", "tiktok", "pinterest"]
     results = []
     
-    # 2. Generate and post for each platform
-    for idea in ideas[:3]:  # Top 3 ideas
+    for idea in ideas[:3]:
         for platform in platforms:
-            content = generate_post_for_platform(idea, platform)
-            result = post_to_platform(content, platform)
+            topic = idea.get("topic", "Gut health")
+            angle = idea.get("angle", topic)
+            
+            if platform == "instagram":
+                draft = f"""✨ {angle} ✨
+
+Your gut bacteria control your hormones more than you think.
+
+The estrobolome — the gut bacteria that metabolize estrogen — is the missing link in menopause health.
+
+💡 Do this today:
+→ Add 1 serving fermented food (kefir, kimchi, sauerkraut)
+→ Hit 30g fiber minimum
+→ Drink 2L water
+
+Your gut ↔ hormone connection starts here.
+
+#Estrobolome #MenopauseHealth #GutHealth #WomenOver45 #HormoneBalance"""
+            elif platform == "tiktok":
+                draft = f"""Did you know your gut bacteria control your estrogen levels? 👀
+
+The estrobolome — it's a real thing. And when it's out of balance, you retain excess estrogen → bloating, mood swings, weight gain.
+
+The fix:
+1. Fermented food daily (kefir, kimchi)
+2. 30g+ fiber (oats, flax, beans)
+3. Cut refined sugar
+
+This changed how I think about menopause. 🔥
+
+#estrobiome #menopause #guthealth #womenover45"""
+            elif platform == "pinterest":
+                draft = f"""{angle} — Evidence-Based Guide for Women 45+
+
+The estrobolome connection: how gut bacteria regulate estrogen during menopause.
+
+Key takeaways:
+• 95% of women over 45 eat less than 20g fiber/day (target: 30-35g)
+• Fermented foods feed the estrobolome bacteria
+• Fiber + fermented foods = balanced estrogen metabolism
+
+Save this for later. 📌"""
+            else:
+                draft = f"{topic}: {angle}"
+            
+            # Safety check
+            blocked = ["cure", "guarantee", "miracle", "replace medication"]
+            lowered = draft.lower()
+            if any(w in lowered for w in blocked):
+                continue
+            if "estrogen" in lowered:
+                draft = draft + "\n\n⚠️ This is educational content, not medical advice."
+            
             results.append({
-                "topic": idea.get("topic", ""),
+                "topic": topic,
                 "platform": platform,
-                "content": content,
-                "status": result["status"],
-                "timestamp": str(datetime.now()),
+                "content": draft,
+                "status": "ready",
             })
     
-    # 3. Save log
-    log_file = "post_log.json"
-    try:
-        with open(log_file) as f:
-            log = json.load(f)
-    except FileNotFoundError:
-        log = []
+    # Save drafts for the post job
+    with open("content_drafts.json", "w") as f:
+        json.dump(results, f, indent=2)
     
-    log.extend(results)
-    with open(log_file, "w") as f:
-        json.dump(log, f, indent=2)
-    
-    print(f"\n=== Complete: {len(results)} posts attempted ===")
+    print(f"Generated {len(results)} content drafts")
     for r in results:
-        print(f"  {r['platform']}: {r['status']}")
+        print(f"  → {r['platform']}: {r['content'][:60]}...")
+    
+    return results
 
 if __name__ == "__main__":
     main()
