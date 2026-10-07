@@ -1,0 +1,63 @@
+# Estrobolome Protocol — GitHub Actions Workflow
+# Add to .github/workflows/estrobome.yml in your repo
+
+name: Estrobolome Content Pipeline
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  trends:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install feedparser
+      - name: Detect trends
+        run: python3 trend_detector.py
+      - name: Upload trends
+        uses: actions/upload-artifact@v4
+        with:
+          name: trend-output
+          path: trend_output.json
+
+  content:
+    needs: trends
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install langgraph langchain-openai
+      - name: Generate content
+        run: python3 estrobome_agent.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+      - name: Upload drafts
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-drafts
+          path: content_drafts.json
+
+  post:
+    needs: content
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download drafts
+        uses: actions/download-artifact@v4
+        with:
+          name: content-drafts
+      - name: Auto-post
+        run: python3 auto_poster.py
+        env:
+          INSTAGRAM_API_KEY: ${{ secrets.INSTAGRAM_API_KEY }}
+          TIKTOK_API_KEY: ${{ secrets.TIKTOK_API_KEY }}
+          PINTEREST_API_KEY: ${{ secrets.PINTEREST_API_KEY }}
